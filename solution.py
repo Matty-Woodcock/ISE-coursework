@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import re
 
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, logging
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, logging, get_linear_schedule_with_warmup
 from torch.utils.data import TensorDataset, DataLoader
 from torch.optim import AdamW   
 from sklearn.model_selection import train_test_split
@@ -35,8 +35,8 @@ logging.set_verbosity_error()
 
 tokenizer = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
 
-#projects = ["pytorch", "tensorflow", "keras", "incubator-mxnet", "caffe"]
-projects = ["caffe"]
+projects = ["pytorch", "tensorflow", "keras", "incubator-mxnet", "caffe"]
+#projects = ["tensorflow"]
 
 for project in projects:
     df = pd.read_csv(f"data/{project}.csv")
@@ -65,6 +65,7 @@ for project in projects:
     accuracies, precisions, recalls, f1s, aucs = [], [], [], [], []
 
     n_runs = 30
+    n_epochs = 3
 
     for seed in range(n_runs):
         run_start_time = datetime.now()
@@ -77,7 +78,7 @@ for project in projects:
         model = DistilBertForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2) #TO DO: Slow? Does num_labels work?
         model = model.to(device)
         optimizer = AdamW(model.parameters(), lr=2e-5)
-
+        
         X_train, X_test, y_train, y_test = train_test_split(
             X,
             y,
@@ -90,7 +91,7 @@ for project in projects:
         class_weights_tensor = torch.tensor(class_weights, dtype=torch.float).to(device)
         loss_function = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
 
-        encoded_train = tokenizer(list(X_train), return_tensors="pt", padding=True, truncation=True, max_length=512)
+        encoded_train = tokenizer(list(X_train), return_tensors="pt", padding=True, truncation=True, max_length=128)
 
         train_input_ids = encoded_train["input_ids"]
         train_attention_mask = encoded_train["attention_mask"]
@@ -100,7 +101,10 @@ for project in projects:
 
         train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
 
-        for epoch in range(3):
+        # total_steps = len(train_dataloader) * n_epochs
+        # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+
+        for epoch in range(n_epochs):
             for batch_input_ids, batch_attention_mask, batch_labels in train_dataloader:
                 batch_input_ids = batch_input_ids.to(device)
                 batch_attention_mask = batch_attention_mask.to(device)
@@ -111,18 +115,19 @@ for project in projects:
                 batch_loss = loss_function(batch_outputs.logits, batch_labels) #Manually compute weighted loss
                 batch_loss.backward()
                 optimizer.step()
+                # scheduler.step()
 
         model.eval()
 
         with torch.no_grad():
-            encoded_test = tokenizer(list(X_test), return_tensors="pt", padding=True, truncation=True, max_length=512)
+            encoded_test = tokenizer(list(X_test), return_tensors="pt", padding=True, truncation=True, max_length=128)
 
             test_outputs = model(input_ids=encoded_test["input_ids"].to(device), attention_mask=encoded_test["attention_mask"].to(device))
 
             y_pred = torch.argmax(test_outputs.logits, dim=1).cpu().numpy() #Convert model logits to predicted class labels
 
         accuracies.append(accuracy_score(y_test, y_pred))
-        precisions.append(precision_score(y_test, y_pred, average="macro", zero_division=0))
+        precisions.append(precision_score(y_test, y_pred, average="macro", zero_division=0))  
         recalls.append(recall_score(y_test, y_pred, average="macro", zero_division=0))
         f1s.append(f1_score(y_test, y_pred, average="macro", zero_division=0))
         false_positive_rates, true_positive_rates, thresholds = roc_curve(y_test, y_pred, pos_label=1)
@@ -153,8 +158,7 @@ for project in projects:
     print(f"{np.unique(y_pred, return_counts=True)}\n")
 
 #TO DO LIST
-#1. Add scheduler
-#3. Add deletes
+#1. Scheduler made it worse?
 #2. Slow model / fast model
 
 # Project: pytorch
@@ -277,9 +281,148 @@ for project in projects:
 
 #30 runs, seeds 1-30
 
+# Project: pytorch
+# Average Accuracy: 0.8670
+# Average Precision: 0.7409
+# Average Recall:    0.7923
+# Average F1 Score:  0.7453
+# Average AUC Score:  0.7923
+
+# Project: tensorflow
+# Average Accuracy: 0.9164
+# Average Precision: 0.8657
+# Average Recall:    0.8691
+# Average F1 Score:  0.8644
+# Average AUC Score:  0.8691
+
+# Project: keras
+# Average Accuracy: 0.8624
+# Average Precision: 0.8019
+# Average Recall:    0.8371
+# Average F1 Score:  0.8066
+# Average AUC Score:  0.8371
+
+# Project: incubator-mxnet
+# Average Accuracy: 0.8976
+# Average Precision: 0.7988
+# Average Recall:    0.8390
+# Average F1 Score:  0.7987
+# Average AUC Score:  0.8390
+
 # Project: caffe
 # Average Accuracy: 0.8058
 # Average Precision: 0.6610
 # Average Recall:    0.7049
 # Average F1 Score:  0.6379
 # Average AUC Score:  0.7049
+
+#Seeded 30 scheduler
+
+# Project: pytorch
+# Average Accuracy: 0.8640
+# Average Precision: 0.7184
+# Average Recall:    0.7759
+# Average F1 Score:  0.7368
+# Average AUC Score:  0.7759
+
+# Project: tensorflow
+# Average Accuracy: 0.9139
+# Average Precision: 0.8536
+# Average Recall:    0.8784
+# Average F1 Score:  0.8642
+# Average AUC Score:  0.8784
+
+# Project: keras
+# Average Accuracy: 0.8498
+# Average Precision: 0.7739
+# Average Recall:    0.8207
+# Average F1 Score:  0.7897
+# Average AUC Score:  0.8207
+
+# Project: incubator-mxnet
+# Average Accuracy: 0.8963
+# Average Precision: 0.7763
+# Average Recall:    0.7829
+# Average F1 Score:  0.7738
+# Average AUC Score:  0.7829
+
+# Project: caffe
+# Average Accuracy: 0.8705
+# Average Precision: 0.6223
+# Average Recall:    0.5577
+# Average F1 Score:  0.5475
+# Average AUC Score:  0.5577
+
+#Seed 30 256 testing only
+
+# Project: pytorch
+# Average Accuracy: 0.8732
+# Average Precision: 0.7495
+# Average Recall:    0.7900
+# Average F1 Score:  0.7502
+# Average AUC Score:  0.7900
+
+# Project: tensorflow
+# Average Accuracy: 0.9132
+# Average Precision: 0.8642
+# Average Recall:    0.8534
+# Average F1 Score:  0.8557
+# Average AUC Score:  0.8534
+
+# Project: keras
+# Average Accuracy: 0.8627
+# Average Precision: 0.8000
+# Average Recall:    0.8303
+# Average F1 Score:  0.8041
+# Average AUC Score:  0.8303
+
+# Project: incubator-mxnet
+# Average Accuracy: 0.8966
+# Average Precision: 0.8007
+# Average Recall:    0.8327
+# Average F1 Score:  0.7950
+# Average AUC Score:  0.8327
+
+# Project: caffe
+# Average Accuracy: 0.8178
+# Average Precision: 0.6586
+# Average Recall:    0.6900
+# Average F1 Score:  0.6331
+# Average AUC Score:  0.6900
+
+#Seed 30 128
+
+# Project: pytorch
+# Average Accuracy: 0.8720
+# Average Precision: 0.7552
+# Average Recall:    0.7815
+# Average F1 Score:  0.7477
+# Average AUC Score:  0.7815
+
+# Project: tensorflow
+# Average Accuracy: 0.9029
+# Average Precision: 0.8472
+# Average Recall:    0.8664
+# Average F1 Score:  0.8498
+# Average AUC Score:  0.8664
+
+# Project: keras
+# Average Accuracy: 0.8496
+# Average Precision: 0.7845
+# Average Recall:    0.8051
+# Average F1 Score:  0.7826
+# Average AUC Score:  0.8051
+
+# Project: incubator-mxnet
+# Average Accuracy: 0.8940
+# Average Precision: 0.7987
+# Average Recall:    0.8348
+# Average F1 Score:  0.7930
+# Average AUC Score:  0.8348
+
+# Project: caffe
+# Average Accuracy: 0.8132
+# Average Precision: 0.6633
+# Average Recall:    0.6757
+# Average F1 Score:  0.6304
+# Average AUC Score:  0.6757
