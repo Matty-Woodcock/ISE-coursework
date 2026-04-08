@@ -16,6 +16,8 @@ from sklearn.metrics import (accuracy_score, precision_score, recall_score,
 # Classifier
 from sklearn.naive_bayes import GaussianNB
 
+from datetime import datetime
+
 # Text cleaning & stopwords
 import nltk
 nltk.download('stopwords')
@@ -100,7 +102,7 @@ datafile = 'Title+Body.csv'
 REPEAT = 30
 
 # 3) Output CSV file name
-out_csv_name = f'../{project}_NB.csv'
+out_csv_name = f'baseline_results/{project}_NB.csv' #Modified so the file is saved to the baseline_results
 
 # ========== Read and clean data ==========
 data = pd.read_csv(datafile).fillna('')
@@ -128,6 +130,7 @@ recalls     = []
 f1_scores   = []
 auc_values  = []
 
+start_time = datetime.now()
 for repeated_time in range(REPEAT):
     # --- 4.1 Split into train/test ---
     indices = np.arange(data.shape[0])
@@ -183,11 +186,12 @@ for repeated_time in range(REPEAT):
     f1_scores.append(f1)
 
     # AUC
-    # If labels are 0/1 only, this works directly.
-    # If labels are something else, adjust pos_label accordingly.
-    fpr, tpr, _ = roc_curve(y_test, y_pred, pos_label=1)
+    y_prob = best_clf.predict_proba(X_test)[:, 1]
+    fpr, tpr, _ = roc_curve(y_test, y_prob, pos_label=1)
     auc_val = auc(fpr, tpr)
     auc_values.append(auc_val)
+
+end_time = datetime.now()
 
 # --- 4.5 Aggregate results ---
 final_accuracy  = np.mean(accuracies)
@@ -204,26 +208,42 @@ print(f"Average Recall:        {final_recall:.4f}")
 print(f"Average F1 score:      {final_f1:.4f}")
 print(f"Average AUC:           {final_auc:.4f}")
 
+duration = (end_time - start_time).total_seconds()
+print(f"\nTotal time for 30 runs: {duration:.1f} seconds")
+
+os.makedirs("baseline_results", exist_ok = True)
+
+#The commented code block below is redundant after my modifications
 # Save final results to CSV (append mode)
-try:
-    # Attempt to check if the file already has a header
-    existing_data = pd.read_csv(out_csv_name, nrows=1)
-    header_needed = False
-except:
-    header_needed = True
+# try:
+      # Attempt to check if the file already has a header
+#     existing_data = pd.read_csv(out_csv_name, nrows=1)
+#     header_needed = False
+# except:
+#     header_needed = True
 
-df_log = pd.DataFrame(
-    {
-        'repeated_times': [REPEAT],
-        'Accuracy': [final_accuracy],
-        'Precision': [final_precision],
-        'Recall': [final_recall],
-        'F1': [final_f1],
-        'AUC': [final_auc],
-        'CV_list(AUC)': [str(auc_values)]
-    }
-)
+# df_log = pd.DataFrame(
+#     {
+#         'repeated_times': [REPEAT],
+#         'Accuracy': [final_accuracy],
+#         'Precision': [final_precision],
+#         'Recall': [final_recall],
+#         'F1': [final_f1],
+#         'AUC': [final_auc],
+#         'CV_list(AUC)': [str(auc_values)]
+#     }
+# )
+#Commented out previous CSV file structure with new one below
+#This allows for easier comparison with my solution in comparison.py
+df_log = pd.DataFrame({
+    'seed': list(range(REPEAT)),
+    'Accuracy': accuracies,
+    'Precision': precisions,
+    'Recall': recalls,
+    'F1': f1_scores,
+    'AUC': auc_values
+})
 
-df_log.to_csv(out_csv_name, mode='a', header=header_needed, index=False)
-
+df_log.to_csv(out_csv_name, index=False) #Modified to overwrite file for easier comparison with my solution in comparison.py
+ 
 print(f"\nResults have been saved to: {out_csv_name}")
