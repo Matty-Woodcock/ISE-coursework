@@ -38,7 +38,7 @@ logging.set_verbosity_error()
 tokenizer = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
 
 projects = ["pytorch", "tensorflow", "keras", "incubator-mxnet", "caffe"]
-#projects = ["pytorch", "tensorflow", "incubator-mxnet", "caffe"]
+#projects = ["caffe"]
 
 for project in projects:
     df = pd.read_csv(f"data/{project}.csv")
@@ -91,7 +91,7 @@ for project in projects:
         class_weights_tensor = torch.tensor(class_weights, dtype=torch.float).to(device)
         loss_function = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
 
-        encoded_train = tokenizer(list(X_train), return_tensors="pt", padding=True, truncation=True, max_length=512)
+        encoded_train = tokenizer(list(X_train), return_tensors="pt", padding=True, truncation=True, max_length=128)
 
         train_input_ids = encoded_train["input_ids"]
         train_attention_mask = encoded_train["attention_mask"]
@@ -120,7 +120,7 @@ for project in projects:
         model.eval()
 
         with torch.no_grad():
-            encoded_test = tokenizer(list(X_test), return_tensors="pt", padding=True, truncation=True, max_length=512)
+            encoded_test = tokenizer(list(X_test), return_tensors="pt", padding=True, truncation=True, max_length=128)
 
             test_outputs = model(input_ids=encoded_test["input_ids"].to(device), attention_mask=encoded_test["attention_mask"].to(device))
 

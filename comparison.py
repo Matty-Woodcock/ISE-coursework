@@ -10,6 +10,8 @@ PROJECTS = ["pytorch", "tensorflow", "keras", "incubator-mxnet", "caffe"]
 #PROJECTS = ["keras"]
 METRICS = ["Accuracy", "Precision", "Recall", "F1", "AUC"]
 
+rows = []
+
 for project in PROJECTS:
     baseline_pd = pd.read_csv(f"baseline_results/{project}_NB.csv")
     solution_pd = pd.read_csv(f"solution_results/{project}.csv")
@@ -31,4 +33,18 @@ for project in PROJECTS:
         else:
             print("Not Satistically Signicant, Cannot Reject H0\n")
 
+        rows.append({
+            "Project": project,
+            "Metric": metric,
+            "Baseline Median": round(np.median(baseline_single_metric_results), 4),
+            "Solution Median": round(np.median(solution_single_metric_results), 4),
+            "p-value": round(p_value, 4),
+            "Significant": "Yes" if p_value < 0.05 else "No"
+        })
+
+pd.DataFrame(rows).to_csv("comparison_results_512.csv", index=False)
+print("Results saved to file.")
+
 #TO DO: Investigate keras behaviour further
+#TO DO: zeros?
+#TO DO: Add PDFs
