@@ -2,12 +2,11 @@ import pandas as pd
 import numpy as np
 from scipy.stats import mannwhitneyu
 
-#Before running this file, make sure the required CSV files are in baseline_results and solution_results
+#Before running this file, make sure the required CSV files are in baseline_results/ and solution_results/
 #If you are missing any CSV files, please run solution.py or modified_br_classification.py to generate new CSV files
-#Run this file for full comparison between my solution and base line, including satistical significance testing
+#Run this file for full comparison between my solution and baseline, including satistical significance testing
 
 PROJECTS = ["pytorch", "tensorflow", "keras", "incubator-mxnet", "caffe"]
-#PROJECTS = ["keras"]
 METRICS = ["Accuracy", "Precision", "Recall", "F1", "AUC"]
 
 rows = []
@@ -38,13 +37,9 @@ for project in PROJECTS:
             "Metric": metric,
             "Baseline Median": round(np.median(baseline_single_metric_results), 4),
             "Solution Median": round(np.median(solution_single_metric_results), 4),
-            "p-value": round(p_value, 4),
+            "p-value": "< 0.0001" if p_value < 0.0001 else round(p_value, 4),
             "Significant": "Yes" if p_value < 0.05 else "No"
         })
 
 pd.DataFrame(rows).to_csv("comparison_results_512.csv", index=False)
 print("Results saved to file.")
-
-#TO DO: Investigate keras behaviour further
-#TO DO: zeros?
-#TO DO: Add PDFs
