@@ -38,6 +38,7 @@ logging.set_verbosity_error()
 tokenizer = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
 
 projects = ["pytorch", "tensorflow", "keras", "incubator-mxnet", "caffe"]
+max_window_length = 512 #Change maximum context window length here
 
 for project in projects:
     df = pd.read_csv(f"data/{project}.csv")
@@ -90,7 +91,7 @@ for project in projects:
         class_weights_tensor = torch.tensor(class_weights, dtype=torch.float).to(device)
         loss_function = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
 
-        encoded_train = tokenizer(list(X_train), return_tensors="pt", padding=True, truncation=True, max_length=512) #Change maximum context window length here
+        encoded_train = tokenizer(list(X_train), return_tensors="pt", padding=True, truncation=True, max_length=max_window_length)
 
         train_input_ids = encoded_train["input_ids"]
         train_attention_mask = encoded_train["attention_mask"]
@@ -119,7 +120,7 @@ for project in projects:
         model.eval()
 
         with torch.no_grad():
-            encoded_test = tokenizer(list(X_test), return_tensors="pt", padding=True, truncation=True, max_length=512) #Change maximum context window length here
+            encoded_test = tokenizer(list(X_test), return_tensors="pt", padding=True, truncation=True, max_length=max_window_length)
 
             test_outputs = model(input_ids=encoded_test["input_ids"].to(device), attention_mask=encoded_test["attention_mask"].to(device))
 
@@ -144,8 +145,6 @@ for project in projects:
         del test_outputs
         torch.cuda.empty_cache()
 
-        #print(f"{run_duration:.1f} Seconds, VRAM Used: {torch.cuda.memory_allocated()/1024**2:.0f}MB")
-
     run_end_time = datetime.now()
 
     print(f"\nProject: {project}")
@@ -158,16 +157,16 @@ for project in projects:
     run_duration = (run_end_time - run_start_time).total_seconds()
     print(f"30 Runs Execution Time: {run_duration:.1f} Seconds")
 
-    os.makedirs("solution_results", exist_ok = True)
+    os.makedirs(f"solution_results_{max_window_length}", exist_ok = True)
 
     df_log = pd.DataFrame({
-        'seed': list(range(n_runs)),
-        'Accuracy': accuracies,
-        'Precision': precisions,
-        'Recall': recalls,
-        'F1': f1s,
-        'AUC': aucs
+        "seed": list(range(n_runs)),
+        "Accuracy": accuracies,
+        "Precision": precisions,
+        "Recall": recalls,
+        "F1": f1s,
+        "AUC": aucs
     })
 
-    df_log.to_csv(f'solution_results/{project}.csv', index=False)
-    print(f"Results saved to solution_results/{project}.csv")
+    df_log.to_csv(f"solution_results_{max_window_length}/{project}.csv", index=False)
+    print(f"Results saved to solution_results_{max_window_length}/{project}.csv")
